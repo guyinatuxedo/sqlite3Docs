@@ -46,6 +46,11 @@ Which will translate to these opcodes:
 
 So when we look at the opcodes, we see there are two `OP_OpenRead` opcodes. This is because it has to open up both the table, and the index associated with the table. Proceeding that it uses the `OP_Integer` opcode in order to store the integer we are comparing against in the `P2` regitser. Proceeding that, the `OP_SeekGT` opcode is used. This is used to position the cursor on the index, to the least value that is greater than the specified value, and configure the cursor to move in ascending order. That way in order to get all of the values, it will just have to move that cursor forward by one every time. Proceeding that, it will use the `OP_DeferredSeek` opcode to get the corresponding record in the actual table for the index row. Then it will follow the normal `OP_Column/OP_ResultRow` extraction method, before using `OP_Next` to move to the next record in the index.
 
+So the first major functionallity that happens with the index is `OP_SeekGT`. Looking at the code for this opcode, we can see it really has two parts. 
+
+INSERT INTO x (y, z) VALUES (5, "55555");
+INSERT INTO x (y, z) VALUES (6, "66666");
+INSERT INTO x (y, z) VALUES (7, "77777");
 
 ```
 [ Legend: Modified register | Code | Heap | Stack | String ]
