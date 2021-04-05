@@ -60,3 +60,20 @@ So to take a look at how this statement will be tokenized (token enums defined i
 "x":		0x3b (TK_ID)
 ";":		0x01 (TK_SEMI)
 ```
+
+So looking further into the functionallity of `sqlite3Parser`. Now there are sub functions which will help parse and generate the code for various types of statements. For example, select statements will rely on `sqlite3Select` function to generate the actual code. Now these functions are called within `yy_reduce`. However which function will be called, is decided from a previous function call to `fts5yy_find_shift_action`, which takes the current and previous tokens to determine the action. So it relies on the tokens generated from lexing to determine which function like `sqlite3Select` to generate the vdbe code. The opcodes in those functions is added with these functions:
+
+```
+SQLITE_PRIVATE int sqlite3VdbeAddOp0(Vdbe*,int);
+SQLITE_PRIVATE int sqlite3VdbeAddOp1(Vdbe*,int,int);
+SQLITE_PRIVATE int sqlite3VdbeAddOp2(Vdbe*,int,int,int);
+SQLITE_PRIVATE int sqlite3VdbeGoto(Vdbe*,int);
+SQLITE_PRIVATE int sqlite3VdbeLoadString(Vdbe*,int,const char*);
+SQLITE_PRIVATE void sqlite3VdbeMultiLoad(Vdbe*,int,const char*,...);
+SQLITE_PRIVATE int sqlite3VdbeAddOp3(Vdbe*,int,int,int,int);
+SQLITE_PRIVATE int sqlite3VdbeAddOp4(Vdbe*,int,int,int,int,const char *zP4,int);
+SQLITE_PRIVATE int sqlite3VdbeAddOp4Dup8(Vdbe*,int,int,int,int,const u8*,int);
+SQLITE_PRIVATE int sqlite3VdbeAddOp4Int(Vdbe*,int,int,int,int,int);
+SQLITE_PRIVATE int sqlite3VdbeAddFunctionCall(Parse*,int,int,int,int,const FuncDef*,int);
+SQLITE_PRIVATE void sqlite3VdbeEndCoroutine(Vdbe*,int);
+```
