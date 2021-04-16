@@ -100,7 +100,6 @@ NOT NULL constraint failed: nzrjrlwhaa.llpddzimth
 RIGHT and FULL OUTER JOINs are not currently supported
 near ";": syntax error
 near "THEN": syntax error
-1 values for 3 columns
 ```
 
 

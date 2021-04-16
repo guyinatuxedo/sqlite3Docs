@@ -1,12 +1,10 @@
 # String Processing
 
-So this is the process of how sqlite will interpret string sql queries.
+So this document describes how sqlite3 will parse a sql query, and generate the corresponding vdbe code which will actually execute the query.
 
-## Parsing
+So the function actually responsible for parsing the sql query is the `sqlite3RunParser` function.This function will use the `sqlite3GetToken` function to tokenize parts of the imputed sql. A few things, the max sql len is defined by `mxSqlLen`.
 
-So the function which actually handles parsing will be the `sqlite3RunParser` function located in the `tokenize.c` file. This function will use the `sqlite3GetToken` function to tokenize parts of the inputed sql. A few things, the max sql len is defined by `mxSqlLen`.
-
-One thing to note. There is a `Parse` struct that is passed around to the various parsing functionallity. It can be found in `sqlite3.c`.
+One thing to note. There is a `Parse` struct that is passed around to the various parsing functionality. It can be found in `sqlite3.c`.
 
 ## Tokenization
 
@@ -51,17 +49,17 @@ x
 So to take a look at how this statement will be tokenized (token enums defined in `sqlite3.c`):
 ```
 "SELECT * FROM x;"
-"SELECT": 	0x89 (TK_SELECT)
-" ":		0xb5 (TK_SPACE)
-"*":		0x6c (TK_STAR)
-" ":		0xb5 (TK_SPACE)
-"FROM": 	0x8d (TK_FROM)
-" ":		0xb5 (TK_SPACE)
-"x":		0x3b (TK_ID)
-";":		0x01 (TK_SEMI)
+"SELECT":     0x89 (TK_SELECT)
+" ":        0xb5 (TK_SPACE)
+"*":        0x6c (TK_STAR)
+" ":        0xb5 (TK_SPACE)
+"FROM":     0x8d (TK_FROM)
+" ":        0xb5 (TK_SPACE)
+"x":        0x3b (TK_ID)
+";":        0x01 (TK_SEMI)
 ```
 
-So looking further into the functionallity of `sqlite3Parser`. Now there are sub functions which will help parse and generate the code for various types of statements. For example, select statements will rely on `sqlite3Select` function to generate the actual code. Now these functions are called within `yy_reduce`. However which function will be called, is decided from a previous function call to `fts5yy_find_shift_action`, which takes the current and previous tokens to determine the action. So it relies on the tokens generated from lexing to determine which function like `sqlite3Select` to generate the vdbe code. The opcodes in those functions is added with these functions:
+So looking further into the functionality of `sqlite3Parser`. Now there are sub functions which will help parse and generate the code for various types of statements. For example, select statements will rely on `sqlite3Select` function to generate the actual code. Now these functions are called within `yy_reduce`. However which function will be called, is decided from a previous function call to `fts5yy_find_shift_action`, which takes the current and previous tokens to determine the action. So it relies on the tokens generated from lexing to determine which function like `sqlite3Select` to generate the vdbe code. The opcodes in those functions is added with these functions:
 
 ```
 SQLITE_PRIVATE int sqlite3VdbeAddOp0(Vdbe*,int);

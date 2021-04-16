@@ -389,5 +389,3 @@ So this opcode is to set a value for a cookie, in a database. `P3` is the value,
 #### OP_String8
 
 So this opcode is to set the `p2` register equal to a pointer to a UTF-8 string stored as a ptr in `p4` register.
-
-
