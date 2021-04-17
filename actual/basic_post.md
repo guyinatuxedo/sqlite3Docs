@@ -389,3 +389,19 @@ So this opcode is to set a value for a cookie, in a database. `P3` is the value,
 #### OP_String8
 
 So this opcode is to set the `p2` register equal to a pointer to a UTF-8 string stored as a ptr in `p4` register.
+
+## Code Flow
+
+So the basic code flow of the program contains these three parts (although the first really isn't that long compared to the other):
+
+```
+0.) Scan in Sql query
+1.) String Processing / vdbe code generation
+2.) vdbe code execution
+```
+
+String processing and vdbe code execution have their own sections.
+
+So at first the query is scanned into memory. This happens with `fgets` in the `one_input_line` function called from `process_input` (which is called from main). There is basically an infinite loop which happens within `process_input` that will continually scan in and process commands.
+
+Now there are two separate types of commands. There are meta commands, which specify sql settings. These are specified via having the first character be a `.`. These commands are handles with the `do_meta_command` function. All queries that do not begin with a `.` are assumed to be a sql command, and are handled with the `runOneSqlLine` function.

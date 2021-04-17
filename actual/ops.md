@@ -1,86 +1,9 @@
-
 # Virtual Machine
 
-These are some docs regarding the virtual machine
+These are some docs regarding the virtual machine implementation sqlite3 uses.
 
-## Virtual Machine Datastructure
+So the primary function which will execute the opcodes is `sqlite3VdbeExec`. This executes opcodes via a switch statement. 
 
-This is a copy of datastructure used to store the virtual machine.
-
-```
-struct Vdbe {
-  sqlite3 *db;            /* The database connection that owns this statement */
-  Vdbe *pPrev,*pNext;     /* Linked list of VDBEs with the same Vdbe.db */
-  Parse *pParse;          /* Parsing context used to create this Vdbe */
-  ynVar nVar;             /* Number of entries in aVar[] */
-  u32 iVdbeMagic;         /* Magic number defining state of the SQL statement */
-  int nMem;               /* Number of memory locations currently allocated */
-  int nCursor;            /* Number of slots in apCsr[] */
-  u32 cacheCtr;           /* VdbeCursor row cache generation counter */
-  int pc;                 /* The program counter */
-  int rc;                 /* Value to return */
-  int nChange;            /* Number of db changes made since last reset */
-  int iStatement;         /* Statement number (or 0 if has no opened stmt) */
-  i64 iCurrentTime;       /* Value of julianday('now') for this statement */
-  i64 nFkConstraint;      /* Number of imm. FK constraints this VM */
-  i64 nStmtDefCons;       /* Number of def. constraints when stmt started */
-  i64 nStmtDefImmCons;    /* Number of def. imm constraints when stmt started */
-  Mem *aMem;              /* The memory locations */
-  Mem **apArg;            /* Arguments to currently executing user function */
-  VdbeCursor **apCsr;     /* One element of this array for each open cursor */
-  Mem *aVar;              /* Values for the OP_Variable opcode. */
-
-  /* When allocating a new Vdbe object, all of the fields below should be
-  ** initialized to zero or NULL */
-
-  Op *aOp;                /* Space to hold the virtual machine's program */
-  int nOp;                /* Number of instructions in the program */
-  int nOpAlloc;           /* Slots allocated for aOp[] */
-  Mem *aColName;          /* Column names to return */
-  Mem *pResultSet;        /* Pointer to an array of results */
-  char *zErrMsg;          /* Error message written here */
-  VList *pVList;          /* Name of variables */
-#ifndef SQLITE_OMIT_TRACE
-  i64 startTime;          /* Time when query started - used for profiling */
-#endif
-#ifdef SQLITE_DEBUG
-  int rcApp;              /* errcode set by sqlite3_result_error_code() */
-  u32 nWrite;             /* Number of write operations that have occurred */
-#endif
-  u16 nResColumn;         /* Number of columns in one row of the result set */
-  u8 errorAction;         /* Recovery action to do in case of an error */
-  u8 minWriteFileFormat;  /* Minimum file format for writable database files */
-  u8 prepFlags;           /* SQLITE_PREPARE_* flags */
-  u8 doingRerun;          /* True if rerunning after an auto-reprepare */
-  bft expired:2;          /* 1: recompile VM immediately  2: when convenient */
-  bft explain:2;          /* True if EXPLAIN present on SQL command */
-  bft changeCntOn:1;      /* True to update the change-counter */
-  bft runOnlyOnce:1;      /* Automatically expire on reset */
-  bft usesStmtJournal:1;  /* True if uses a statement journal */
-  bft readOnly:1;         /* True for statements that do not write */
-  bft bIsReader:1;        /* True for statements that read */
-  yDbMask btreeMask;      /* Bitmask of db->aDb[] entries referenced */
-  yDbMask lockMask;       /* Subset of btreeMask that requires a lock */
-  u32 aCounter[7];        /* Counters used by sqlite3_stmt_status() */
-  char *zSql;             /* Text of the SQL statement that generated this */
-#ifdef SQLITE_ENABLE_NORMALIZE
-  char *zNormSql;         /* Normalization of the associated SQL statement */
-  DblquoteStr *pDblStr;   /* List of double-quoted string literals */
-#endif
-  void *pFree;            /* Free this when deleting the vdbe */
-  VdbeFrame *pFrame;      /* Parent frame */
-  VdbeFrame *pDelFrame;   /* List of frame objects to free on VM reset */
-  int nFrame;             /* Number of frames in pFrame list */
-  u32 expmask;            /* Binding to these vars invalidates VM */
-  SubProgram *pProgram;   /* Linked list of all sub-programs used by VM */
-  AuxData *pAuxData;      /* Linked list of auxdata allocations */
-#ifdef SQLITE_ENABLE_STMT_SCANSTATUS
-  i64 *anExec;            /* Number of times each op has been executed */
-  int nScan;              /* Entries in aScan[] */
-  ScanStatus *aScan;      /* Scan definitions for sqlite3_stmt_scanstatus() */
-#endif
-};
-```
 
 ## OPcodes Listing
 
@@ -268,52 +191,82 @@ OP_Explain       177
 OP_Abortable     178
 ```
 
-## OPs
 
-#### OP_Init
+## Virtual Machine Datastructure
 
-#### OP_Transaction
+This is a copy of datastructure used to store the virtual machine.
 
-The purpose of this op is to begin a transaction on a database.
+```
+struct Vdbe {
+  sqlite3 *db;            /* The database connection that owns this statement */
+  Vdbe *pPrev,*pNext;     /* Linked list of VDBEs with the same Vdbe.db */
+  Parse *pParse;          /* Parsing context used to create this Vdbe */
+  ynVar nVar;             /* Number of entries in aVar[] */
+  u32 iVdbeMagic;         /* Magic number defining state of the SQL statement */
+  int nMem;               /* Number of memory locations currently allocated */
+  int nCursor;            /* Number of slots in apCsr[] */
+  u32 cacheCtr;           /* VdbeCursor row cache generation counter */
+  int pc;                 /* The program counter */
+  int rc;                 /* Value to return */
+  int nChange;            /* Number of db changes made since last reset */
+  int iStatement;         /* Statement number (or 0 if has no opened stmt) */
+  i64 iCurrentTime;       /* Value of julianday('now') for this statement */
+  i64 nFkConstraint;      /* Number of imm. FK constraints this VM */
+  i64 nStmtDefCons;       /* Number of def. constraints when stmt started */
+  i64 nStmtDefImmCons;    /* Number of def. imm constraints when stmt started */
+  Mem *aMem;              /* The memory locations */
+  Mem **apArg;            /* Arguments to currently executing user function */
+  VdbeCursor **apCsr;     /* One element of this array for each open cursor */
+  Mem *aVar;              /* Values for the OP_Variable opcode. */
 
-#### OP_Goto
+  /* When allocating a new Vdbe object, all of the fields below should be
+  ** initialized to zero or NULL */
 
-The purpose of this op is to execute an unconditional jump.
-
-#### OP_ReopenIdx
-
-#### OP_Rewind
-
-This opcode configure the "current" entry of the table to be the first. It also configures the cursor to operate in forward order. So it will go from the first record to the last record.
-
-#### OP_Offset
-
-The purpose of this opcode is to get the byte offset of the current record pointed to by the cursor.
-
-#### OP_ChngCntRow
-
-The purpose of this record is to accumulate the results of a row. It leads onto the `OP_ResultRow` and `OP_Concat` ops. 
-
-#### OP_Next
-
-The purpose of this opcode is to move the next record.
-
-#### OP_OpenRead
-
-The purpose of this op is to open a read/write cursor to a table.
-
-#### OP_OpenPseudo
-
-The purpose of this op is to open up a cursor to a new psuedo-table, that only contains a single row, which is specified.
-
-#### OP_SeekHit
-
-#### OP_Affinity
-
-#### OP_Squence
-
-#### OP_IdxRowid
-
-#### OP_Halt
-
-The purpose of this op is to immediately exit, closes everything including all open cursors.
+  Op *aOp;                /* Space to hold the virtual machine's program */
+  int nOp;                /* Number of instructions in the program */
+  int nOpAlloc;           /* Slots allocated for aOp[] */
+  Mem *aColName;          /* Column names to return */
+  Mem *pResultSet;        /* Pointer to an array of results */
+  char *zErrMsg;          /* Error message written here */
+  VList *pVList;          /* Name of variables */
+#ifndef SQLITE_OMIT_TRACE
+  i64 startTime;          /* Time when query started - used for profiling */
+#endif
+#ifdef SQLITE_DEBUG
+  int rcApp;              /* errcode set by sqlite3_result_error_code() */
+  u32 nWrite;             /* Number of write operations that have occurred */
+#endif
+  u16 nResColumn;         /* Number of columns in one row of the result set */
+  u8 errorAction;         /* Recovery action to do in case of an error */
+  u8 minWriteFileFormat;  /* Minimum file format for writable database files */
+  u8 prepFlags;           /* SQLITE_PREPARE_* flags */
+  u8 doingRerun;          /* True if rerunning after an auto-reprepare */
+  bft expired:2;          /* 1: recompile VM immediately  2: when convenient */
+  bft explain:2;          /* True if EXPLAIN present on SQL command */
+  bft changeCntOn:1;      /* True to update the change-counter */
+  bft runOnlyOnce:1;      /* Automatically expire on reset */
+  bft usesStmtJournal:1;  /* True if uses a statement journal */
+  bft readOnly:1;         /* True for statements that do not write */
+  bft bIsReader:1;        /* True for statements that read */
+  yDbMask btreeMask;      /* Bitmask of db->aDb[] entries referenced */
+  yDbMask lockMask;       /* Subset of btreeMask that requires a lock */
+  u32 aCounter[7];        /* Counters used by sqlite3_stmt_status() */
+  char *zSql;             /* Text of the SQL statement that generated this */
+#ifdef SQLITE_ENABLE_NORMALIZE
+  char *zNormSql;         /* Normalization of the associated SQL statement */
+  DblquoteStr *pDblStr;   /* List of double-quoted string literals */
+#endif
+  void *pFree;            /* Free this when deleting the vdbe */
+  VdbeFrame *pFrame;      /* Parent frame */
+  VdbeFrame *pDelFrame;   /* List of frame objects to free on VM reset */
+  int nFrame;             /* Number of frames in pFrame list */
+  u32 expmask;            /* Binding to these vars invalidates VM */
+  SubProgram *pProgram;   /* Linked list of all sub-programs used by VM */
+  AuxData *pAuxData;      /* Linked list of auxdata allocations */
+#ifdef SQLITE_ENABLE_STMT_SCANSTATUS
+  i64 *anExec;            /* Number of times each op has been executed */
+  int nScan;              /* Entries in aScan[] */
+  ScanStatus *aScan;      /* Scan definitions for sqlite3_stmt_scanstatus() */
+#endif
+};
+```

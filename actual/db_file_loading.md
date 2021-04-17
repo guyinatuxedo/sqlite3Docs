@@ -1,8 +1,22 @@
 # DB Loading
 
-So a database is loaded from a file, into memory. This document analyzes that process.
+So a database is loaded from a file, into memory. This document analyzes that process
 
-So the database is not really loaded, until you run your first query. When you run the first query, a series of function calls will be made to initialize it. We will be looking at the `sqlite3InitOne` function. This is the function which is responsible for initializing one database file.
+So the database is not really loaded, until you run your first query. When you run the first query, a series of function calls will be made to initialize it. The file is read with a `fread` call at this spot:
+
+```
+gef➤  bt
+#0  __GI__IO_fread (buf=0x7fffffffb6d0, size=0x10, count=0x1, fp=0x555555692700) at iofread.c:31
+#1  0x000055555557c8a3 in fread (__stream=0x555555692700, __n=0x1, __size=0x10, __ptr=0x7fffffffb6d0) at /usr/include/x86_64-linux-gnu/bits/stdio2.h:297
+#2  deduceDatabaseType (zName=0x5555556938d0 "x", dfltZip=0x0) at shell.c:14424
+#3  0x000055555557cb12 in open_db (p=0x7fffffffcd80, openFlags=0x1) at shell.c:14713
+#4  0x00005555555859bd in open_db (openFlags=0x1, p=0x7fffffffcd80) at shell.c:18851
+#5  do_meta_command (zLine=<optimized out>, p=<optimized out>) at shell.c:18883
+#6  0x0000555555587fbd in process_input (p=0x7fffffffcd80) at shell.c:20670
+#7  0x0000555555564c9a in main (argc=<optimized out>, argv=0x7fffffffe0a8) at shell.c:21504
+```
+
+We will be looking at the `sqlite3InitOne` function. This is the function which is responsible for initializing one database file.
 
 So the first that it does, is it creates a cursor to the database, and starts a transaction on the database using `sqlite3BtreeBeginTrans`. Proceeding that, it will read the database meta information, with this loop:
 

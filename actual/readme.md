@@ -2,13 +2,13 @@
 
 ```
 basics
-flow
 string processing
 memory
 db_file_loading
 virtual machine
 insertion
 selection
+meta commands
 index
 corruption/checks
 fuzzing
@@ -21,10 +21,6 @@ record overlapping
 
 This just covers some of the basics of sqlite3 operation.
 
-### Flow
-
-This briefly describes the code flow execution for executing queries.
-
 ### String Processing (CHECKED)
 
 This briefly describes the process for parsing a string, and deciding what actions to take to service the query.
@@ -33,7 +29,7 @@ This briefly describes the process for parsing a string, and deciding what actio
 
 This describes the memory management of sqlite3.
 
-### db file loading
+### db file loading (CHECKED)
 
 So this document describes how sqlite3 will load a database file.
 
@@ -60,3 +56,9 @@ This describes some of the various checks.
 ### Fuzzing
 
 This describes some of the fuzzing I did of sqlite3.
+
+### Record Leaking
+
+### Record Overflow
+
+### Record Overlapping
