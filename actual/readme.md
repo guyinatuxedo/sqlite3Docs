@@ -10,7 +10,6 @@ insertion
 selection
 meta commands
 index
-corruption/checks
 fuzzing
 record leaking
 record overflow
@@ -33,29 +32,21 @@ This describes the memory management of sqlite3.
 
 So this document describes how sqlite3 will load a database file.
 
-### virtual machine
+### virtual machine (CHECKED)
 
 This document describes the virtual machine implementation of sqlite3.
 
-### Insertion
+### Insertion (CHECKED)
 
 This document describes the process sqlite3 record insertion.
 
-### Selection
+### Selection (CHECKED)
 
 This document describes the process of sqlite3 record retrieval.
 
-### Index
+### Index (CHECKED)
 
 This document will describe indexes.
-
-### Corruption and Checks
-
-This describes some of the various checks.
-
-### Fuzzing
-
-This describes some of the fuzzing I did of sqlite3.
 
 ### Record Leaking
 

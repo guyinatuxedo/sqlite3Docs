@@ -1,13 +1,57 @@
 # Selection
 
-So this document will describe the functionallity surrounding actually reading data from a database. Data is read one column at a time, for each row. This is done with the `OP_Column` opcode, and most of the actual functionallity for extracting the value occurs in this opcode (not handled by a called function).
+This will cover the process of retrieving data from a database, through the use of a select statement. This is the query:
 
-Now when it extracts column values, it will calculate the offset to that column. It will do so using the record header. It will parse through the bytes of the header, summating the offset until it reaches the desired column.
+```
+sqlite> SELECT * FROM x;
+```
 
-There are several checks that happen with this. First initially it will check the total size of the header, that it is not greater than the size of the row, greater than the payload size, and greater than `0x18003` (checks happen in a sequence).
+Which outputs these values:
 
-There are also checks to see that when it was parsing the header, it did not overextend past the header size. It also checks that if the entire header was parsed, but the data offset is not at the end. Lastly it also checks that the data does not extend past the end of the record.
+```
+0|00000
+0|00000
+0|00000
+```
 
-Also another thing to note. If the data for a record extends off the page, it will assume that the data is in an overflow page, and execute additional functionallity to get it.
+Which is executed with these different opcodes.
 
-Then for actually extracting the value. If it is an integer, it will extract it using `sqlite3VdbeSerialGet`. If it is a string, it will extract it using a `memcpy` call.
+
+```
+0x3e(62)    :    OP_Init
+0x02(02)    :    OP_Transaction
+0x0b(11)    :    OP_Goto
+0x61(97)    :    OP_OpenRead
+0x25(37)    :    OP_Rewind
+0x5a(90)    :    OP_Column
+0x5a(90)    :    OP_Column
+0x51(81)    :    OP_ResultRow
+0x05(05)    :    OP_Next
+0x5a(90)    :    OP_Column
+0x5a(90)    :    OP_Column
+0x51(81)    :    OP_ResultRow
+0x05(05)    :    OP_Next
+0x5a(90)    :    OP_Column
+0x5a(90)    :    OP_Column
+0x51(81)    :    OP_ResultRow
+0x05(05)    :    OP_Next
+0x44(68)    :    OP_Halt
+```
+
+So we will start going through the opcodes. First is the `OP_OpenRead` opcode. This opcode will open up a cursor to the table, that is writable. This will do so through the use of a call of `sqlite3BtreeCursor`, which calls `btreeCursor`.
+
+Proceeding that, it will call the `OP_Rewind` opcode. This opcode will move the cursor to the first entry. This is typically done with the `sqlite3BtreeFirst` function.
+
+Now the remaining opcodes form a loop. It is a series of `OP_Column` opcodes, followed by the `OP_ResultRow` and `OP_Next` opcodes. This is repeated multiple times until execution is halted with a `OP_Halt` opcode. Each iteration of this pattern is to get a single row of results. The reason why this pattern only repeats three times is because the table only has three records, which will be retrieved with this query.
+
+So the next opcode that is executed is `OP_Column`. This opcode is responsible for retrieving a single data field from a single record (which is why there are two `OP_Column` opcodes per record, since there are two fields being retrieved per record). This opcode is where the primary data retrieval work is executed. Also the majority of the logic does occur within the opcode itself, and is not passed to another function call.
+
+So looking at the code for that opcode. We first see there is a check that happens, that the size of the row is not less than the defined header length. If that check is failed, then it checks if the header length is greater then 98307, or bigger than the defined payload size, and if it is then it flags it for corruption.
+
+Now the part that happens after that check, is when it calculates where exactly the data field is. It will do this via a loop, where it iterates through the header values. The specific column that is trying to be extracted is specified in the `P2` register. It will use the header values to determine where the `P2-ith` value will be, using a do while loop. The offsets are stored in the `aOffset` array. It doesn't calculate offsets to data values past the data field it is trying to find (starts from the 1st).
+
+There are several different checks that happen. It checks that it did not parse the header past the end of it, that the entire header was used by not the entire data section, or that the data offset doesn't extend past the end of the record. Then after that, it will actually extract the value. For numeric data types, this is typically done with the `sqlite3VdbeSerialGet` function. For string data types, this is typically done with `memcpy`.
+
+Proceeding that there is the `OP_ResultRow` opcode, which will just construct the record to output from the values extracted from `OP_Column` opcodes.
+
+After that, there is the `OP_Next` opcode, which will move the cursor to the next record. This is done with the `sqlite3BtreeNext` function (stored in `xAdvance`).

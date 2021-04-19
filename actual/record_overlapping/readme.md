@@ -1,57 +1,66 @@
-# Record Overflow
+# Record Overlaping
 
-So this is another trick, that can be done via editing the database file to cause "interesting" behavior with the records. This was on sqlite3 version `3.35.1`. The purpose of this is we can overflow a record into subsequent records via overwriting the size value of the record to be larger, then updating it.
+So this is another trick that can come about by editing the database file. This will lead to allocation of overlapping records.
 
-# Explannation
+## Explannation
 
-So when a record is updated, what happens is that record is removed and then a new record (the updated record) is inserted. We will first overwrite the size value of the record to extend into subsequent records. We will then update that record. That record will be freed, and the recorded free spot will extend into the next block. Then in the update process, a new record will be inserted into that spot (we will need to groom the heap correctly, and have the sizes match up). When the new record is inserted, it will extend into the next record, if the sizes are right.
+So this deals with the space allocation for new records. Specifically by overwriting the `OffsetContent` value of a page header. We overwrite it to point to to inside of the records itself. This will cause it to allocate the next record ontop of existing records.
 
-# Example
+## Example
 
-So we start off with creating a table, with a few entries:
-
-```
-sqlite> .open example
-sqlite> CREATE TABLE x (y int, z varchar);
-sqlite> INSERT INTO x (y, z) VALUES (5, "55555");
-sqlite> INSERT INTO x (y, z) VALUES (6, "66666");
-sqlite> INSERT INTO x (y, z) VALUES (7, "77777");
-sqlite> INSERT INTO x (y, z) VALUES (8, "88888");
-sqlite> SELECT * FROM x;
-5|55555
-6|66666
-7|77777
-8|88888
-```
-
-Now, we will "corrupt" the database file. We will be editing the `6` record to overflow into the `5` record. This what the bytes of those records look like:
+So take for instance, we have the `overlaping_records_example` file with these records:
 
 ```
-09 	02 	03 	01 	17 	06 	36 	36 	36 	36 	36
-09 	01 	03 	01 	17 	05 	35 	35 	35 	35 	35
+sqlite> .open overlaping_records_example
+sqlite> CREATE TABLE x (y INT, z VARCHAR);
+sqlite> INSERT INTO x (y, z) VALUES (0, "0");
+sqlite> INSERT INTO x (y, z) VALUES (1, "1");
+sqlite> INSERT INTO x (y, z) VALUES (2, "2");
+sqlite> select * from x;
+0|0
+1|1
+2|2
+sqlite> .exit
 ```
 
-So we are going to change two values of the `6` record. Our objective is to overwrite the entirety of the `5` record. We will do this via updating the `6` record, to cover both the `6` and `5` records. We will accomplish this by expanding the size of the `6` record, to encompass both records. To do that we will chage the size from `0x09` to `0x14`, and the size of the varchar from `0x17` to `0x2D` (`hex(int((0x2D - 12) / 2)) = 0x10`). The `6` record will now look like this:
+For this, the database file looks like this:
+
+The header/ptrs array:
+```
+0D	00	00	00	03	0F	ED	00	0F	FA	0F	F4	0F	ED
+```
+
+So here, we can see that this page holds three records at offset `0x0FED`, `0x0FF4`, and `0x0FFA`. We can also see that the Content Offset is `0x0FED`. We will overwrite this to be `0x0FF3`. This file will be the `overlaping_records_example_corrupted_preinsert`. This way, the start of the content section is at the start of the record 2, the next record will be allocated (since there are no free spots) ontop of record with `2`.
 
 ```
-14 	02 	03 	01 	2D 	06 	36 	36 	36 	36 	36
+0D	00	00	00	03	0F	F3	00	0F	FA	0F	F4	0F	ED
 ```
 
-Now to actually do the update:
+Then when we insert a new record:
 
 ```
-sqlite> .open example_postupdate
-sqlite> SELECT * FROM x;
-5|55555
-6|66666	55555
-7|77777
-8|88888
-sqlite> UPDATE x SET z = "000000000000000" WHERE y = 6;
-sqlite> SELECT * FROM x;
-Error: database disk image is malformed
+sqlite> .open overlaping_records_example_corrupted_insert
+sqlite> select * from x;
+0|0
+1|1
+2|2
+sqlite> INSERT INTO x (y, z) VALUES (0, "0");
+sqlite> select * from x;
+0|0
+1|1
+0|0
+0|0
+sqlite> .exit
 ```
-When we take a look at the database file, we see this. As we see, we have overwritten the record:
+
+When we take a look at the header, we see that there is overlapping records. This is also apparant, since we see that the `2` record got changed to `0`, from the select:
 
 ```
-00 	13 	02 	03 	01 	2B 	06 	30 	30 	30 	30 	30 	30 	30 	30 	30 	30 	30 	30 	30
+0D	00	00	00	04	0F	ED	00	0F	FA	0F	F4	0F	ED	0F	ED
+```
+
+When we look at the records, we see that there are only three in existence. 
+
+```
+04	04	03	08	0F	30	32	04	02	03	09	0F	31	04	01	03	08	0F	30
 ```
