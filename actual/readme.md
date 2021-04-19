@@ -1,5 +1,7 @@
 # sqlite3 Docs
 
+[basics](basic_post.md)
+
 ```
 basics
 string processing
