@@ -4,12 +4,12 @@ This page will include info on what the exact data structures in memory look lik
 
 ## Records
 
-The basic format of a record looks like this (this is basically a copy of the one from the sqlite3 comments):
+The basic format of a record looks like this (this is taken partially from of the one from the sqlite3 comments):
 
 ```
-+-------------------------------------------------------------------------------------------+
-| header size | datype 0 | datatype 1 | ... | datatype n - 1 | data 0 | data 1 | data n - 1 |
-+-------------------------------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------------------------------+
+| total record size | record ID | header size | datype 0 | datatype 1 | ... | datatype n - 1 | data 0 | data 1 | data n - 1 |
++---------------------------------------------------------------------------------------------------------------------------+
 ```
 
 Now here is a chart of the various datatype values:
